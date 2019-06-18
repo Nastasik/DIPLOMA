@@ -9,16 +9,21 @@ const menu = document.querySelector('.menu'),
       share = document.querySelector('.share'),
       comments = document.querySelector('.comments');
 
-
+const menuUrl = menu.querySelector('.menu__url');
 menu.dataset.state = 'initial';
 commentsForm.classList.add('tool');
 currentImage.classList.add('tool');
 
-//---------------узел с универсальной ошибкой---------------------
+//---------------узел с  ошибкой---------------------
+document.querySelector('.error').style.zIndex = 300;
 const newError = document.querySelector('.error').cloneNode(true); 
-console.log(newError);
 newError.querySelector('.error__message').innerText = 'Чтобы загрузить новое изображение, пожалуйста, воспользуйтесь пунктом «Загрузить новое» в меню.'
-
+wrap.appendChild(newError);
+//----------------------------скрытие исходной формы-----------------------
+const cloakOfInvisibility = document.createElement('div'); 
+cloakOfInvisibility.classList.add('tool');
+wrap.appendChild(cloakOfInvisibility);
+cloakOfInvisibility.appendChild(commentsForm);
 
 //---------------------------ПЕРЕМЕЩЕНИЕ МЕНЮ--------------------------------
 let moved = null,
@@ -66,8 +71,8 @@ document.addEventListener('mouseup', (event) => {
             if (moved != null) {
                 moved.style.pointerEvents = '';
                 menuMove(event);
-            //console.log( moved);                  
-            moved = null;
+                //console.log( moved);                  
+                moved = null;
         }        
 });
 
@@ -88,6 +93,7 @@ document.querySelector('.new').insertBefore(fileLoad, document.querySelector('ne
 //console.log(fileLoad);
 
 //---------------отображение изображения, проверка формата---------------
+let isPic = '';
 function updateFilesInfo(files) {
     const imageTypeRegExp =  /.(png|jpeg)+$/;
     
@@ -95,35 +101,42 @@ function updateFilesInfo(files) {
        if (imageTypeRegExp.test(file.type)) {
             currentImage.src = URL.createObjectURL(file);
             currentImage.addEventListener('load', (event) => URL.revokeObjectURL(event.target.src));
-            imgOnServer(file);            
+            imgOnServer(file); 
+            isPic = 'ok';           
        } 
         else {
-            document.querySelector('.error').style.display = "";
-            document.querySelector('.fileInput').addEventListener('change', () => document.querySelector('.error').style.display = "none");
+            document.querySelector('.error').style.display = "";     
+            isPic = '';      
         }
     });
 }
 
+Array.from(document.querySelectorAll('.error'), (err) => err.addEventListener('click', (event) => event.currentTarget.style.display = "none"));
+
 document.querySelector('.fileInput').addEventListener('change', (event) => {   
        const files = event.currentTarget.files;
        updateFilesInfo(files);               
-              
-    
 });
 
 //-----------------загрузка перетаскиванием---------------
+
 wrap.addEventListener('drop', (event) => {  
-    event.preventDefault();    
-    const files = Array.from(event.dataTransfer.files);
-    updateFilesInfo(files);    
+    event.preventDefault(); 
+    if (isPic === 'ok') {        
+        return newError.style.display = '';
+    } 
+    const files = Array.from(event.dataTransfer.files);   
+    updateFilesInfo(files);        
 });
 
-wrap.addEventListener('dragover', (event) => {event.preventDefault()});
+wrap.addEventListener('dragover', (event) => {
+    event.preventDefault();
+});
 
 
 //---------------========== ИЗОБРАЖЕНИЕ НА СЕРВЕР ============-----------------BAD PART
 
-
+let getData;
 
 function imgOnServer(file) {
   
@@ -147,18 +160,16 @@ function imgOnServer(file) {
             currentImage.classList.remove('tool');
             menu.dataset.state = 'default';
             imageLoader.style.display = "none";
-            Array.from(document.querySelectorAll('.comments__form'), (item) => item.classList.remove('tool'));
-            document.querySelector('.comments__form').style.display = 'none';
-
-            const socket = new WebSocket('wss://neto-api.herokuapp.com/pic/' + date.id);
+            
+            const socket = new WebSocket('wss://neto-api.herokuapp.com/pic/' + getData.id);
             socket.addEventListener('open', () => {
-                document.querySelector('.menu__url').value = window.location.protocol + '//' + window.location.host + window.location.pathname + '?id=' + window.imgID;             
+                document.querySelector('.menu__url').value = window.location.protocol + '//' + window.location.host + window.location.pathname + '?id=' + getData.id;             
                 console.log('Вебсокет-соединение открыто');
-                webSocket(socket);
+                webSocket(socket);            
             })
 
       .catch((error) => {
-        alert('Ошибка при отправке изображения');           
+            alert('Ошибка при отправке изображения');           
       });
     });
 } 
@@ -209,22 +220,21 @@ Array.from(document.querySelector('.draw-tools').children, (item) => {
     });
 });
 
-
-
-Array.from(document.querySelectorAll('.menu__toggle'), (item) => {
+//--------------------показать/скрыть комментарии-------------------
+// Array.from(document.querySelectorAll('.menu__toggle'), (item) => {
     
-    item.addEventListener('changed', (event) => {
-        delChecked(Array.from(document.querySelectorAll('.menu__toggle')));
-        event.target.setAttribute('checked', '');
+//     item.addEventListener('changed', (event) => {
+//         delChecked(Array.from(document.querySelectorAll('.menu__toggle')));
+//         event.target.setAttribute('checked', '');
         
-            if (item.value === 'on') {        
-                Array.from(document.querySelectorAll('.comments__form'), (item) => item.classList.remove('tool'));          
-            } 
-            if (item.value === 'off') {                
-                Array.from(document.querySelectorAll('.comments__form'), (item) => item.classList.add('tool'));
-            }       
-    });   
-});
+//             if (item.value === 'on') {        
+//                 Array.from(document.querySelectorAll('.comments__form'), (item) => item.classList.remove('tool'));          
+//             } 
+//             if (item.value === 'off') {                
+//                 Array.from(document.querySelectorAll('.comments__form'), (item) => item.classList.add('tool'));
+//             }       
+//     });   
+// });
 
 function commentOnOff() {
 Array.from(document.querySelectorAll('.menu__toggle'), (item) => {
@@ -244,6 +254,7 @@ Array.from(document.querySelectorAll('.menu__toggle'), (item) => {
 
 }
 commentOnOff();
+
 //--------------=========== МАСКА CANVAS =============---------------
       const mask = document.createElement('canvas'),
             ctx = mask.getContext('2d');
@@ -274,6 +285,7 @@ mask.addEventListener('mousedown', event => {
     if(draw.dataset.state === 'selected')  { 
         currentAction = 'down';
         curves.push(makeCurve(event.offsetX, event.offsetY));
+       
     }
 }); 
 
@@ -282,6 +294,7 @@ mask.addEventListener('mousemove', event => {
   if (currentAction === 'down') {
     curves.push(makeCurve(event.offsetX, event.offsetY));     
     needsRepaint = true;
+    throttle(sendMask, 1000);
   }
 });
 
@@ -309,7 +322,7 @@ function tick() {
     repaint();
     needsRepaint = false;
     //sendMask();
-    debounce(sendMask, 2000);
+    //debounce(sendMask, 1000);
   }
   window.requestAnimationFrame(tick);
 }
@@ -327,6 +340,18 @@ function debounce(callback, delay) {
     }
   }
  
+  function throttle(callback, delay) {
+	let isWaiting = false;
+	return function () {
+		if (!isWaiting) {
+			isWaiting = true;
+			setTimeout(() => {
+				callback();
+				isWaiting = false;
+			}, delay);
+		}
+	}
+}
 
 //-------------------ОТПРАВКА РИСУНКА---------------------------
 function sendMask() {
@@ -335,21 +360,56 @@ function sendMask() {
     //  socket.send(sendPic.buffer)
 	mask.toBlob(function (blob) {
 		socket.send(blob);
-		//ctx.clearRect(0, 0, mask.width, mask.height);
+		ctx.clearRect(0, 0, mask.width, mask.height);
 	});
 }
 
 
-//---------------ПОДЕЛИТЬСЯ----------------
+//-----------------------------ПОДЕЛИТЬСЯ-------------------------------------
 
 document.querySelector('.menu_copy').addEventListener('click', function () {
-    document.querySelector('.menu__url').select();
+    menuUrl.select();
     document.execCommand('copy');
 });
 
 
-//-----------------------------КОММЕНТИРОВАНИЕ-----------------
+let url = new URL(`${window.location.href}`);
+let newId = url.searchParams.get('id');
+urlId();
 
+function urlId() {
+	if (!newId) { return; }
+    setReview(newId);
+
+	menu.dataset.state = 'default';
+	Array.from(menu.querySelectorAll('.mode')).forEach(mode => {
+		if (!mode.classList.contains('comments')) { return; }
+			
+		menu.dataset.state = 'selected';
+		mode.dataset.state = 'selected';
+});
+}
+
+function loadView() {
+    menu.dataset.state = 'default';
+
+	Array.from(menu.querySelectorAll('.mode')).forEach(modeItem => {
+		modeItem.dataset.state = ''
+		modeItem.addEventListener('click', () => {
+			
+			if (!modeItem.classList.contains('new')) {
+				menu.dataset.state = 'selected';
+				modeItem.dataset.state = 'selected';
+			}
+			
+			if (modeItem.classList.contains('share')) {
+				menuUrl.value = viewLink;
+			}
+		})
+	})
+}
+
+//-----------------------------КОММЕНТИРОВАНИЕ-----------------
 
 const content = document.querySelector('.comment__message');//чужой коммент
 const submit = document.querySelector('.comments__submit');//кнопка ответить
@@ -376,9 +436,13 @@ function setReview(id) {
 	);
 	xhrGetInfo.send();
 
-	let dataGetParse = JSON.parse(xhrGetInfo.responseText);	
+   getData = JSON.parse(xhrGetInfo.responseText);
+   console.log(getData, 'getData');
+    
+    currentImage.src = getData.url;
+    
 
-	updateCommentForm(dataGetParse.comments);
+	updateCommentForm(getData.comments);
 }
 
 function updateCommentForm(newComment) {
@@ -387,14 +451,14 @@ function updateCommentForm(newComment) {
 	Object.keys(newComment).forEach(id => {		
 			
         showComments[id] = newComment[id];
-        console.log(showComments[id], 'showComments[id]');       
+        //console.log(showComments[id], 'showComments[id]');       
         //let needCreateNewForm = true;       
 
 		Array.from(document.querySelectorAll('.comments__form'), (form) => {
 			
 			if (+form.dataset.left === showComments[id].left && +form.dataset.top === showComments[id].top) {
                 form.querySelector('.loader').parentElement.style.display = 'none';
-                console.log(form, 'form')
+                //console.log(form, 'form')
 				createComment(newComment[id], form); 
                 //needCreateNewForm = false;
                 return;
@@ -408,39 +472,32 @@ function updateCommentForm(newComment) {
 }
 
 //------------------ВЫКЛ не активных форм комминтариев----------------------
-document.addEventListener('click', (event) => {
-    if (event.target.closest('.comments__marker-checkbox')) {
-        Array.from(document.querySelectorAll('.comments__marker-checkbox'), (form) => {
-            form.removeAttribute('checked');
-        });
-        event.target.closest('.comments__marker-checkbox').setAttribute('checked', '');
-    }
-
-});
+// document.addEventListener('click', (event) => {
+//     if (event.target.closest('.comments__marker-checkbox')) {
+//         delChecked(document.querySelectorAll('.comments__marker-checkbox'));
+//         event.target.setAttribute('checked', '');
+//     }
+// });
 
 
 
-markerСheckbox.addEventListener('click', (event) => {    
-    event.stopPropagation(); 
-    (event.target.hasAttribute('checked')) ? event.target.removeAttribute('checked') : event.target.setAttribute('checked', '');
-});
-
-
-
-mask.addEventListener('click', () => {
-    if(comments.dataset.state === 'selected')  {        
+mask.addEventListener('click', (event) => {       
+    if(comments.dataset.state === 'selected' && document.querySelector('.menu__toggle').hasAttribute('checked'))  {        
        createCommentForm();
     }
 }); 
 
+let count = 0;
 
 function createCommentForm() {
    
-    const newForm = commentsForm.cloneNode(true);
-    newForm.style.display = 'block';
-    delChecked(Array.from(document.querySelectorAll('.comments__marker-checkbox')));
+    const newForm = commentsForm.cloneNode(true),
+          newMarker = newForm.querySelector('.comments__marker-checkbox');
    
-    wrap.insertBefore(newForm, commentsForm);
+    newForm.classList.remove('tool');
+    delChecked(Array.from(document.querySelectorAll('.comments__marker-checkbox')));   
+    wrap.insertBefore(newForm, cloakOfInvisibility);
+    
     for (let i = 0; i < 3; i++) {            
         newForm.children[2].removeChild(newForm.children[2].querySelectorAll('.comment')[0]);        
     }
@@ -449,15 +506,46 @@ function createCommentForm() {
    
    commentOnOff();
    
+   let flag = '';
+   
+   mask.addEventListener('click', () => {
+        if(newForm && flag !== 'ok')  {        
+            wrap.removeChild(newForm);
+        }
+    });     
+      
    newForm.children[1].setAttribute('checked', '');
-
+   
     newForm.querySelector('.comments__close').addEventListener('click', () => {
-        newForm.querySelector('.comments__marker-checkbox').checked = false;
-        wrap.removeChild(newForm);
+        newMarker.checked = false;
+        if(flag !== 'ok') {
+            wrap.removeChild(newForm);
+        }
     });
+
+    
+    newMarker.addEventListener('click', (event) => {    
+    event.stopPropagation(); 
+    (event.target.hasAttribute('checked')) ? event.target.removeAttribute('checked') : (event.target.setAttribute('checked', '') && ++count);
+    //if (event.target.closest('.comments__marker-checkbox')) {
+        //if(count > 1) {
+            delChecked(Array.from(document.querySelectorAll('.comments__marker-checkbox').not(event.target)));
+       // }
+    //     event.target.setAttribute('checked', '');
+    // }
+});
+
+    // newMarker.addEventListener('focus',  (event) => {
+    //     event.target.setAttribute('checked', '');
+    // });
+
+    // newMarker.addEventListener('blur',  (event) => {
+    //     event.target.removeAttribute('checked');
+    // });
 
     newForm.addEventListener('submit',  (event) => {
         event.preventDefault();
+        flag = 'ok';
         document.querySelector('.comment .loader').style.display = 'inline-block';    
         const commentData = {
             'message': newForm.querySelector('.comments__input').value,
@@ -469,12 +557,12 @@ function createCommentForm() {
         sendComment(commentData);
         newForm.querySelector('.comments__input').value = '';
     });
-    return newForm;
+    return count;
 }   
 
 function sendComment(commentData) {
         
-    fetch('https://neto-api.herokuapp.com/pic/' + window.imgID + '/comments' , {
+    fetch('https://neto-api.herokuapp.com/pic/' + getData.id + '/comments' , {
         method: 'POST',
         headers: {
         "Content-type": "application/x-www-form-urlencoded; charset=UTF-8"
@@ -490,12 +578,12 @@ function sendComment(commentData) {
 }
 
 function createComment(data, item) {
-    console.log(item, 'item');
+    //console.log(item, 'item');
     const newComment = comment.cloneNode(true),
           loader = item.querySelector('.loader').parentNode,
           newDateTime = newComment.children[0],
           newMessage = newComment.children[1];
-    console.log(item.querySelector('.loader').parentNode, 'item.querySelectorparentNode');
+    //console.log(item.querySelector('.loader').parentNode, 'item.querySelectorparentNode');
     newComment.style.top = (data.top) + 'px';
     newComment.style.left = (data.left) + 'px';
     newComment.dataset.top = data.top;
@@ -551,7 +639,7 @@ function webSocket(socket) {
             const loadedCommentForm = {};    
             const loadedComment = data.comment;
             loadedCommentForm[loadedComment.id] = {};
-            console.log(loadedCommentForm);
+            //console.log(loadedCommentForm);
             loadedCommentForm[loadedComment.id].left = loadedComment.left;
             loadedCommentForm[loadedComment.id].message = loadedComment.message;
             loadedCommentForm[loadedComment.id].timestamp = loadedComment.timestamp;
@@ -560,6 +648,7 @@ function webSocket(socket) {
             break;
 
         case 'mask':
+           //
             mask.src = data.url;       
             break;
       }
