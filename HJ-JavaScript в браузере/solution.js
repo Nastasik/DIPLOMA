@@ -7,40 +7,148 @@ const menu = document.querySelector('.menu'),
       wrap = document.querySelector('.wrap'),
       draw = document.querySelector('.draw'),
       share = document.querySelector('.share'),
-      comments = document.querySelector('.comments');
+      comments = document.querySelector('.comments'),
+      comment = document.querySelector('.comment'),
+      markerСheckbox = document.querySelector('.comments__marker-checkbox'),
+      commentsForms = document.querySelectorAll('.comments__form'),
+      marker = document.querySelector('.comments__marker'),
+      menuUrl = menu.querySelector('.menu__url');
 
-const menuUrl = menu.querySelector('.menu__url');
+let flag = '';
+
+marker.style.zIndex = 205;
+markerСheckbox.style.zIndex = 206;
+commentsForm.style.zIndex = 206;
+
 menu.dataset.state = 'initial';
 commentsForm.classList.add('tool');
 currentImage.classList.add('tool');
+document.querySelector('.burger').style.display = 'none';
 
-//---------------узел с  ошибкой---------------------
+//---------------  узел с  ошибкой  ---------------------
 document.querySelector('.error').style.zIndex = 300;
 const newError = document.querySelector('.error').cloneNode(true); 
-newError.querySelector('.error__message').innerText = 'Чтобы загрузить новое изображение, пожалуйста, воспользуйтесь пунктом «Загрузить новое» в меню.'
+newError.querySelector('.error__message').innerText = 'Чтобы загрузить новое изображение, пожалуйста, воспользуйтесь пунктом «Загрузить новое» в меню.';
 wrap.appendChild(newError);
-//----------------------------скрытие исходной формы-----------------------
+//----------------------------  скрытие исходной формы  -----------------------
 const cloakOfInvisibility = document.createElement('div'); 
-cloakOfInvisibility.classList.add('tool');
+cloakOfInvisibility.classList.add('tool');  
 wrap.appendChild(cloakOfInvisibility);
 cloakOfInvisibility.appendChild(commentsForm);
 
-//---------------------------ПЕРЕМЕЩЕНИЕ МЕНЮ--------------------------------
+//--------------=========== МАСКА CANVAS =============---------------
+
+const mask = document.createElement('canvas'),
+      ctx = mask.getContext('2d');
+//ctx.globalCompositeOperation = 'source-out';
+
+mask.style.position = 'relative'; 
+mask.style.zIndex = 200;    
+ctx.strokeStyle = 'green';
+wrap.appendChild(mask);
+mask.style.width = '100%';
+mask.style.height = '100%';
+
+//--------------=========== МАСКА CANVAS COMMENT =============---------------
+
+const maskCommentDiv = document.createElement('div'),
+      maskComment = document.createElement('canvas'),
+      ctxComment = maskComment.getContext('2d');
+//ctxComment.globalCompositeOperation = 'source-out';
+
+maskCommentDiv.width = currentImage.width;
+maskCommentDiv.height = currentImage.height;
+//maskCommentDiv.style.userSelect = 'none';
+
+maskCommentDiv.style.cssText = `position: absolute; width: ${currentImage.width}px; height: ${currentImage.height}px; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 202;`
+maskComment.style.cssText = 'position: absolute; width: 100%; height: 100%; top: 0; left: 0; z-index: 202;'
+    
+wrap.appendChild(maskCommentDiv);
+maskCommentDiv.appendChild(maskComment);
+
+ //----------------------============== ВЕБСОКЕТ ===============---------------------
+ let socket;
+function webSocket() {
+     socket = new WebSocket('wss://neto-api.herokuapp.com/pic/' + getData.id);
+            socket.addEventListener('open', () => {
+                menuUrl.value = window.location.protocol + '//' + window.location.host + window.location.pathname + '?id=' + getData.id;             
+                console.log('Вебсокет-соединение открыто');
+                            
+            })
+    socket.addEventListener('close', () => {
+      alert('Соединение разорвано');
+      
+    });
+
+    socket.addEventListener('message', event => {
+       // console.log(event.data, event.target, 'aaaaaaaaaaaaaaaas');
+      const data = JSON.parse(event.data);
+      //console.log(data);
+      switch (data.event) {
+
+        case 'pic':            
+            currentImage.src = data.pic.url;
+            
+            currentImage.addEventListener('load',  function (e) {
+               //console.log(e, 'eeee');
+                if (data.pic.mask) {
+                    //mask.src = data.pic.mask.url;        
+                    mask.style.background = `url(${data.pic.mask})`;    
+                }
+                if (data.pic.comments) {   
+                   // console.log(data.pic.comments, 'data.pic.comments');         
+                        for (let comment in data.pic.comments) {
+                            const loadedComment = {
+                                message: comment.message,
+                                left: comment.left,
+                                top: comment.top
+                            }                
+                            //createComment(loadedComment, comment.parentNode.parentNode);
+                        }                    
+                }
+            })
+            break;
+
+        case 'comment':
+            const loadedCommentForm = {};    
+            const loadedComment = data.comment;
+            loadedCommentForm[loadedComment.id] = {};
+            console.log(loadedCommentForm, 'loadedCommentForm');
+            loadedCommentForm[loadedComment.id].left = loadedComment.left;
+            loadedCommentForm[loadedComment.id].message = loadedComment.message;
+            loadedCommentForm[loadedComment.id].timestamp = loadedComment.timestamp;
+            loadedCommentForm[loadedComment.id].top = loadedComment.top;
+           updateCommentForm(loadedCommentForm);               
+            break;
+
+        case 'mask':
+           //
+          mask.style.background = `url(${data.url})`;
+           // mask.src = data.url;       
+            break;
+      }
+      console.log(data);
+    });
+
+    socket.addEventListener('error', error => {
+         console.log(`Произошла ошибка: ${error.data}`);
+    });
+}
+
+
+//---------------------========== ПЕРЕМЕЩЕНИЕ МЕНЮ ===========--------------------------------
 let moved = null,
     posX = null, 
     posY = null; 
 
 document.addEventListener('mousedown', (event) => {
-    if (event.target.classList.contains('drag')) {      
-        //console.log(menu);  
+    if (event.target.classList.contains('drag')) {  
         moved = event.target.parentNode;
-        //console.log(event.target.parentNode);
         moved.style.pointerEvents = 'none';
         const bounds = event.target.getBoundingClientRect();
         posX = event.pageX - bounds.left - window.pageXOffset;
         posY = event.pageY - bounds.top - window.pageYOffset;      
     }
-    //console.log( moved);
 });
 
 function menuMove(event) {
@@ -61,8 +169,7 @@ function menuMove(event) {
 
 document.addEventListener('mousemove', (event) => {
     if (moved != null) {
-        event.preventDefault();
-        //console.log( moved);
+        event.preventDefault();        
         menuMove(event);        
     } 
 });
@@ -70,14 +177,13 @@ document.addEventListener('mousemove', (event) => {
 document.addEventListener('mouseup', (event) => {    
             if (moved != null) {
                 moved.style.pointerEvents = '';
-                menuMove(event);
-                //console.log( moved);                  
+                menuMove(event);                                  
                 moved = null;
         }        
 });
 
 //-------------------=========== ЗАГРУЗКА ИЗОБРАЖЕНИЯ =============----------------------------------
-//---------новая кнопка input-----------  
+//---------  новая кнопка input  -----------  
 const fileLoad = document.createElement('input');
 fileLoad.setAttribute('accept', "image/jpeg, image/png");
 fileLoad.setAttribute('type', "file");
@@ -92,7 +198,7 @@ fileLoad.classList.add('fileInput');
 document.querySelector('.new').insertBefore(fileLoad, document.querySelector('new-icon'));
 //console.log(fileLoad);
 
-//---------------отображение изображения, проверка формата---------------
+//---------------  отображение изображения, проверка формата  ---------------
 let isPic = '';
 function updateFilesInfo(files) {
     const imageTypeRegExp =  /.(png|jpeg)+$/;
@@ -118,7 +224,7 @@ document.querySelector('.fileInput').addEventListener('change', (event) => {
        updateFilesInfo(files);               
 });
 
-//-----------------загрузка перетаскиванием---------------
+//-----------------  загрузка перетаскиванием  ---------------
 
 wrap.addEventListener('drop', (event) => {  
     event.preventDefault(); 
@@ -134,7 +240,7 @@ wrap.addEventListener('dragover', (event) => {
 });
 
 
-//---------------========== ИЗОБРАЖЕНИЕ НА СЕРВЕР ============-----------------BAD PART
+//---------------========== ИЗОБРАЖЕНИЕ НА СЕРВЕР ============-----------------
 
 let getData;
 
@@ -156,22 +262,18 @@ function imgOnServer(file) {
          	setReview(date.id);	
             
             mask.src = '';
-            console.log(date)
+           // console.log(date);
             currentImage.classList.remove('tool');
             menu.dataset.state = 'default';
             imageLoader.style.display = "none";
             
-            const socket = new WebSocket('wss://neto-api.herokuapp.com/pic/' + getData.id);
-            socket.addEventListener('open', () => {
-                document.querySelector('.menu__url').value = window.location.protocol + '//' + window.location.host + window.location.pathname + '?id=' + getData.id;             
-                console.log('Вебсокет-соединение открыто');
-                webSocket(socket);            
-            })
-
-      .catch((error) => {
+            webSocket();
+            
+        })
+      .catch(() => {
             alert('Ошибка при отправке изображения');           
       });
-    });
+    
 } 
 
 
@@ -189,20 +291,23 @@ function dataStateClean() {
 let lastItem;
 [draw, comments, share].forEach((item) => {    
     item.addEventListener('click', () => {
+        document.querySelector('.burger').style.display = '';
         dataStateClean();
         item.dataset.state = 'selected';
-        item.style.display = 'inline-block';    
+        item.style.display = 'inline-block';  
+        (draw.dataset.state === 'selected') ?  mask.style.zIndex = 203 : mask.style.zIndex = 200;   
     });   
 });
 
 document.querySelector('.burger').addEventListener('click', () => {
     dataStateClean();
+    document.querySelector('.burger').style.display = 'none';
     document.querySelector('.menu').dataset.state = '';         
     [draw, comments, share].forEach((item) => item.style.display = 'inline-block');
     document.querySelector('.new').style.display = 'inline-block';  
 });
 
-//-----------------------------------переключатели inputs--------------------------------------------
+//-----------------------------------  переключатели inputs  --------------------------------------------
  
 function delChecked(arr) {
     arr.forEach(item => {
@@ -212,6 +317,7 @@ function delChecked(arr) {
     });
 }
 
+//---------------------------------  выбор кисти  ---------------------------
 Array.from(document.querySelector('.draw-tools').children, (item) => {
     item.addEventListener('click', (event) => {
         delChecked(Array.from(document.querySelector('.draw-tools').children));
@@ -220,21 +326,8 @@ Array.from(document.querySelector('.draw-tools').children, (item) => {
     });
 });
 
-//--------------------показать/скрыть комментарии-------------------
-// Array.from(document.querySelectorAll('.menu__toggle'), (item) => {
-    
-//     item.addEventListener('changed', (event) => {
-//         delChecked(Array.from(document.querySelectorAll('.menu__toggle')));
-//         event.target.setAttribute('checked', '');
-        
-//             if (item.value === 'on') {        
-//                 Array.from(document.querySelectorAll('.comments__form'), (item) => item.classList.remove('tool'));          
-//             } 
-//             if (item.value === 'off') {                
-//                 Array.from(document.querySelectorAll('.comments__form'), (item) => item.classList.add('tool'));
-//             }       
-//     });   
-// });
+//--------------------  показать/скрыть комментарии  -------------------
+
 
 function commentOnOff() {
 Array.from(document.querySelectorAll('.menu__toggle'), (item) => {
@@ -255,67 +348,91 @@ Array.from(document.querySelectorAll('.menu__toggle'), (item) => {
 }
 commentOnOff();
 
-//--------------=========== МАСКА CANVAS =============---------------
-      const mask = document.createElement('canvas'),
-            ctx = mask.getContext('2d');
-      ctx.globalCompositeOperation = 'source-out';
-      mask.width = wrap.offsetWidth;
-      mask.height = wrap.offsetHeight;
-      mask.style.position = 'relative'; 
-      mask.style.zIndex = 200;    
-      ctx.strokeStyle = 'green';
-      wrap.appendChild(mask);
-     
 
+//-----------------============ РИСОВАЛКА =============------------------------- 
 
-//-----------------------РИСОВАЛКА------------------------- новая линия липнет к старой
-
-
-let currentAction = '',
-    curves = [],
+let curves = [],
+    drawing = false,
     needsRepaint = false;
 
- 
-mask.addEventListener("mouseleave", (event) => {
-  curves = [];
-  currentAction = '';
-});
+const brush = 4;
 
-mask.addEventListener('mousedown', event => {
-    if(draw.dataset.state === 'selected')  { 
-        currentAction = 'down';
-        curves.push(makeCurve(event.offsetX, event.offsetY));
-       
-    }
-}); 
-
-mask.addEventListener('mousemove', event => {
-  if (! isButtonPressed(1, event.buttons)) { return; } 
-  if (currentAction === 'down') {
-    curves.push(makeCurve(event.offsetX, event.offsetY));     
-    needsRepaint = true;
-    throttle(sendMask, 1000);
-  }
-});
-
-const isButtonPressed = (buttonCode, pressed) => (pressed & buttonCode) === buttonCode;
-const makeCurve = (x, y) => [x, y];
-
-
-function repaint() {  
-    ctx.beginPath();
-    
-    ctx.lineWidth = 4 +'px';
-    ctx.lineJoin = 'round';
-    ctx.lineCap  = 'round';   
-
-    ctx.moveTo(curves[0], curves[1]);
-    for (let i = 1; i <= curves.length - 1; i++) {
-        ctx.lineTo(...curves[i]);    
-    }
-    ctx.stroke();
-    ctx.closePath();  
+function circle(point) {
+	ctx.beginPath();
+	ctx.arc(...point, brush / 2, 0, 2 * Math.PI);
+	ctx.fill();
 }
+
+function smoothCurveBetween (p1, p2) {
+	const cp = p1.map((coord, idx) => (coord + p2[idx]) / 2);
+	ctx.quadraticCurveTo(...p1, ...cp);
+}
+
+function smoothCurve(points) {
+	ctx.beginPath();
+	ctx.lineWidth = brush;
+	ctx.lineJoin = 'round';
+	ctx.lineCap = 'round';
+
+	ctx.moveTo(...points[0]);
+
+	for(let i = 1; i < points.length - 1; i++) {
+		smoothCurveBetween(points[i], points[i + 1]);
+	}
+
+	ctx.stroke();
+}
+
+function makePoint(x, y) {
+	return [x, y];
+};
+
+mask.addEventListener("mousedown", (event) => {
+	if (draw.dataset.state !== 'selected') return;
+	drawing = true;
+
+	const curve = []; 
+	curve.color = ctx.strokeStyle;
+
+	curve.push(makePoint(event.offsetX, event.offsetY)); 
+	curves.push(curve); 
+	needsRepaint = true;
+});
+
+mask.addEventListener("mouseup", () => { 
+    drawing = false;
+});
+
+mask.addEventListener("mouseleave", () => {
+	drawing = false;
+});
+
+mask.addEventListener("mousemove", () => {
+	if (drawing) {
+		const point = makePoint(event.offsetX, event.offsetY)
+		curves[curves.length - 1].push(point);
+		needsRepaint = true;
+		trottled();
+	}
+});
+
+const trottled = throttle(sendMask, 1000);
+
+function repaint () {
+	ctx.clearRect(0, 0, mask.width, mask.height);
+
+	curves.forEach((curve) => {
+		ctx.strokeStyle = curve.color;
+		ctx.fillStyle = curve.color;
+
+		circle(curve[0]);
+		smoothCurve(curve);
+	});
+}
+
+
+
+
 
 function tick() {
   if (needsRepaint) {
@@ -354,18 +471,19 @@ function debounce(callback, delay) {
 }
 
 //-------------------ОТПРАВКА РИСУНКА---------------------------
-function sendMask() {
-
-    // const sendPic = mask.toDataURL('image/png');    
-    //  socket.send(sendPic.buffer)
+function sendMask() {    
 	mask.toBlob(function (blob) {
 		socket.send(blob);
 		ctx.clearRect(0, 0, mask.width, mask.height);
 	});
 }
 
+//----------========== ОБНОВЛЕНИЕ СТРАНИЦЫ ===========----------------------
 
-//-----------------------------ПОДЕЛИТЬСЯ-------------------------------------
+
+
+
+//------------------------============= ПОДЕЛИТЬСЯ ===============-------------------------------------
 
 document.querySelector('.menu_copy').addEventListener('click', function () {
     menuUrl.select();
@@ -390,84 +508,61 @@ function urlId() {
 });
 }
 
-function loadView() {
-    menu.dataset.state = 'default';
 
-	Array.from(menu.querySelectorAll('.mode')).forEach(modeItem => {
-		modeItem.dataset.state = ''
-		modeItem.addEventListener('click', () => {
-			
-			if (!modeItem.classList.contains('new')) {
-				menu.dataset.state = 'selected';
-				modeItem.dataset.state = 'selected';
-			}
-			
-			if (modeItem.classList.contains('share')) {
-				menuUrl.value = viewLink;
-			}
-		})
-	})
-}
-
-//-----------------------------КОММЕНТИРОВАНИЕ-----------------
+//=============================  КОММЕНТИРОВАНИЕ  ====================================
 
 const content = document.querySelector('.comment__message');//чужой коммент
 const submit = document.querySelector('.comments__submit');//кнопка ответить
 const close = document.querySelector('.comments__close');//кнопка закрыть
 const status = document.getElementsByClassName('.comment__time')[0];//время отправки
 const input = document.querySelector('.comments__input');//ввод
-const comment = document.querySelector('.comment'), //оболочка сообщения и даты personal
-      markerСheckbox = document.querySelector('.comments__marker-checkbox'),
-      commentsForms = document.querySelectorAll('.comments__form'),
-      marker = document.querySelector('.comments__marker');
 
-marker.style.zIndex = 201;
-markerСheckbox.style.zIndex = 202;
-commentsForm.style.zIndex = 202;
 document.querySelector('.comment .loader').style.display = 'none';
 
-//----------------О ФАЙЛЕ------------------
+//----------------  О ФАЙЛЕ  ------------------
 function setReview(id) {
 	const xhrGetInfo = new XMLHttpRequest();
 	xhrGetInfo.open(
 		'GET',
 		`https://neto-api.herokuapp.com/pic/${id}`,
 		false
-	);
+    );
+    
 	xhrGetInfo.send();
 
    getData = JSON.parse(xhrGetInfo.responseText);
-   console.log(getData, 'getData');
-    
+   
+   webSocket();
+   //var WebSocket = require('wss');
     currentImage.src = getData.url;
-    
+    currentImage.classList.remove('tool');
+   //// console.log(currentImage, 'currentImage');
 
+    console.log(getData, 'getData');
 	updateCommentForm(getData.comments);
 }
 
 function updateCommentForm(newComment) {
     if (!newComment) return;
     let showComments = {};
+    console.log(newComment, 'new')
 	Object.keys(newComment).forEach(id => {		
-			
+		console.log(newComment,'newComment');	
         showComments[id] = newComment[id];
-        //console.log(showComments[id], 'showComments[id]');       
-        //let needCreateNewForm = true;       
+        //console.log(showComments[id], 'showComments[id]');             
 
 		Array.from(document.querySelectorAll('.comments__form'), (form) => {
 			
 			if (+form.dataset.left === showComments[id].left && +form.dataset.top === showComments[id].top) {
                 form.querySelector('.loader').parentElement.style.display = 'none';
                 //console.log(form, 'form')
-				createComment(newComment[id], form); 
-                //needCreateNewForm = false;
+				createComment(newComment[id], form);                 
                 return;
-            }            
+            } 
+           console.log(newComment[id], 'newComment[id]');
+           createComment(newComment[id], createCommentForm(newComment[id].left + 20, newComment[id].top + 16));
+           flag = 'ok';			     
         });
-       // if (needCreateNewForm === true) {			
-            // const result = createCommentForm();
-			// createComment(newComment, result);
-		//}
     });   
 }
 
@@ -475,40 +570,40 @@ function updateCommentForm(newComment) {
 // document.addEventListener('click', (event) => {
 //     if (event.target.closest('.comments__marker-checkbox')) {
 //         delChecked(document.querySelectorAll('.comments__marker-checkbox'));
-//         event.target.setAttribute('checked', '');
+//         event.target.setAttribute('checked', 's');
 //     }
 // });
 
-
-
-mask.addEventListener('click', (event) => {       
+maskComment.addEventListener('click', (event) => { 
+    //console.log(event);    
     if(comments.dataset.state === 'selected' && document.querySelector('.menu__toggle').hasAttribute('checked'))  {        
-       createCommentForm();
+       createCommentForm(event.offsetX, event.offsetY);//event.clientX, event.clientY);
     }
 }); 
 
 let count = 0;
 
-function createCommentForm() {
+function createCommentForm(left, top) {
    
     const newForm = commentsForm.cloneNode(true),
           newMarker = newForm.querySelector('.comments__marker-checkbox');
    
     newForm.classList.remove('tool');
     delChecked(Array.from(document.querySelectorAll('.comments__marker-checkbox')));   
-    wrap.insertBefore(newForm, cloakOfInvisibility);
+    //wrap.insertBefore(newForm, cloakOfInvisibility);
+    maskCommentDiv.appendChild(newForm);
     
     for (let i = 0; i < 3; i++) {            
         newForm.children[2].removeChild(newForm.children[2].querySelectorAll('.comment')[0]);        
     }
-    newForm.style.left = (event.offsetX) - 20 + 'px';
-    newForm.style.top = (event.offsetY) - 16 + 'px';
-   
+    newForm.style.left = left - 20 + 'px';
+    newForm.style.top = top - 16 + 'px';
+    //newForm.style.position = 'relative';
    commentOnOff();
    
-   let flag = '';
    
-   mask.addEventListener('click', () => {
+   
+   maskComment.addEventListener('click', () => {
         if(newForm && flag !== 'ok')  {        
             wrap.removeChild(newForm);
         }
@@ -528,12 +623,12 @@ function createCommentForm() {
     event.stopPropagation(); 
     (event.target.hasAttribute('checked')) ? event.target.removeAttribute('checked') : (event.target.setAttribute('checked', '') && ++count);
     //if (event.target.closest('.comments__marker-checkbox')) {
-        //if(count > 1) {
-            delChecked(Array.from(document.querySelectorAll('.comments__marker-checkbox').not(event.target)));
-       // }
+    //     if(count > 1) {
+    //         delChecked(Array.from(document.querySelectorAll('.comments__marker-checkbox').not(event.target)));
+    //    }
     //     event.target.setAttribute('checked', '');
     // }
-});
+    });
 
     // newMarker.addEventListener('focus',  (event) => {
     //     event.target.setAttribute('checked', '');
@@ -546,18 +641,20 @@ function createCommentForm() {
     newForm.addEventListener('submit',  (event) => {
         event.preventDefault();
         flag = 'ok';
-        document.querySelector('.comment .loader').style.display = 'inline-block';    
+        document.querySelector('.comment .loader').style.display = 'inline-block'; 
+       // const date = new Date();   
         const commentData = {
             'message': newForm.querySelector('.comments__input').value,
             'left': parseInt(event.target.style.left),
             'top': parseInt(event.target.style.top),
             'timestamp': event.target.timestamp
         }
-        createComment(commentData, event.target);
+        
+        //createComment(commentData, event.target);
         sendComment(commentData);
         newForm.querySelector('.comments__input').value = '';
     });
-    return count;
+    return newForm;
 }   
 
 function sendComment(commentData) {
@@ -572,91 +669,37 @@ function sendComment(commentData) {
     .then(response => (200 <= response.status && response.status < 300) ? response : new Error(response.statusText))
    
     .then(response => response.json())
-    .catch((error) => {        
+    .then(res => {
+       // updateCommentForm(res);
+        console.log(res,'resssssssssssssssss'); //nen
+    })
+    .catch(() => {        
         alert('Ошибка при отправке комментария');
    })
 }
 
 function createComment(data, item) {
-    //console.log(item, 'item');
     const newComment = comment.cloneNode(true),
           loader = item.querySelector('.loader').parentNode,
           newDateTime = newComment.children[0],
           newMessage = newComment.children[1];
-    //console.log(item.querySelector('.loader').parentNode, 'item.querySelectorparentNode');
+
     newComment.style.top = (data.top) + 'px';
     newComment.style.left = (data.left) + 'px';
     newComment.dataset.top = data.top;
     newComment.dataset.left = data.left;
+    let date;
+    (data.timestamp != undefined) ? date = new Date(data.timestamp) : date = new Date();    
 
-
-    const date = new Date();
-    const messageTime = data.timestamp || date.getHours() + ':' + date.getMinutes() + ':' + date.getSeconds();
+    const messageTime = date.getHours() + ':' + date.getMinutes() + ':' + date.getSeconds();    
     newDateTime.textContent = messageTime;
-    
 
     newMessage.style.whiteSpace = 'pre';
     newMessage.textContent = data.message;
+
     item.children[2].insertBefore(newComment, loader);
 }
 
 
- //----------------------ВЕБСОКЕТ---------------------
-function webSocket(socket) {
-    
-    socket.addEventListener('close', (event) => {
-      alert('Соединение разорвано');
-      
-    });
 
-    socket.addEventListener('message', event => {
-        console.log(event.data);
-      const data = JSON.parse(event.data);
-      console.log(data);
-      switch (data.event) {
-
-        case 'pic':            
-            currentImage.src = data.pic.url;
-            
-            currentImage.onload = function () {
-                if (data.pic.mask) {
-                    mask.src = data.pic.mask;            
-                }
-                if (data.pic.comments) {            
-                        for (let comment in data.pic.comments) {
-                            const loadedComment = {
-                                message: comments[comment].message,
-                                left: data.pic.comments[comment].left,
-                                top: data.pic.comments[comment].top
-                            }                
-                            createComment(loadedComment, comment);
-                        }                    
-                }
-            }
-            break;
-
-        case 'comment':
-            const loadedCommentForm = {};    
-            const loadedComment = data.comment;
-            loadedCommentForm[loadedComment.id] = {};
-            //console.log(loadedCommentForm);
-            loadedCommentForm[loadedComment.id].left = loadedComment.left;
-            loadedCommentForm[loadedComment.id].message = loadedComment.message;
-            loadedCommentForm[loadedComment.id].timestamp = loadedComment.timestamp;
-            loadedCommentForm[loadedComment.id].top = loadedComment.top;
-            updateCommentForm(loadedCommentForm);     
-            break;
-
-        case 'mask':
-           //
-            mask.src = data.url;       
-            break;
-      }
-      console.log(data);
-    });
-
-    socket.addEventListener('error', error => {
-         console.log(`Произошла ошибка: ${error.data}`);
-    });
-}
 
