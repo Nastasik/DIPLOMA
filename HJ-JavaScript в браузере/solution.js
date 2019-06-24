@@ -42,12 +42,15 @@ const mask = document.createElement('canvas'),
       ctx = mask.getContext('2d');
 //ctx.globalCompositeOperation = 'source-out';
 
-mask.style.position = 'relative'; 
-mask.style.zIndex = 200;    
+//mask.style.position = 'relative'; 
+mask.style.cssText = `position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 200;`
+//mask.style.zIndex = 200;    
 ctx.strokeStyle = 'green';
 wrap.appendChild(mask);
-mask.style.width = '100%';
-mask.style.height = '100%';
+//width: ${currentImage.width * 2}px; height: ${currentImage.height * 2}px;
+mask.width =  currentImage.width  * 3;
+mask.height =  currentImage.height * 3;
+//document.addEventListener('')
 
 //--------------=========== МАСКА CANVAS COMMENT =============---------------
 
@@ -118,12 +121,12 @@ function webSocket() {
             loadedCommentForm[loadedComment.id].message = loadedComment.message;
             loadedCommentForm[loadedComment.id].timestamp = loadedComment.timestamp;
             loadedCommentForm[loadedComment.id].top = loadedComment.top;
-           updateCommentForm(loadedCommentForm);               
+            updateCommentForm(loadedCommentForm);               
             break;
 
         case 'mask':
            //
-          mask.style.background = `url(${data.url})`;
+            mask.style.background = `url(${data.url})`;
            // mask.src = data.url;       
             break;
       }
@@ -326,9 +329,7 @@ Array.from(document.querySelector('.draw-tools').children, (item) => {
     });
 });
 
-//--------------------  показать/скрыть комментарии  -------------------
-
-
+//--------------------------------  показать/скрыть комментарии  -----------------------------------------
 function commentOnOff() {
 Array.from(document.querySelectorAll('.menu__toggle'), (item) => {
     
@@ -356,32 +357,6 @@ let curves = [],
     needsRepaint = false;
 
 const brush = 4;
-
-function circle(point) {
-	ctx.beginPath();
-	ctx.arc(...point, brush / 2, 0, 2 * Math.PI);
-	ctx.fill();
-}
-
-function smoothCurveBetween (p1, p2) {
-	const cp = p1.map((coord, idx) => (coord + p2[idx]) / 2);
-	ctx.quadraticCurveTo(...p1, ...cp);
-}
-
-function smoothCurve(points) {
-	ctx.beginPath();
-	ctx.lineWidth = brush;
-	ctx.lineJoin = 'round';
-	ctx.lineCap = 'round';
-
-	ctx.moveTo(...points[0]);
-
-	for(let i = 1; i < points.length - 1; i++) {
-		smoothCurveBetween(points[i], points[i + 1]);
-	}
-
-	ctx.stroke();
-}
 
 function makePoint(x, y) {
 	return [x, y];
@@ -412,11 +387,11 @@ mask.addEventListener("mousemove", () => {
 		const point = makePoint(event.offsetX, event.offsetY)
 		curves[curves.length - 1].push(point);
 		needsRepaint = true;
-		trottled();
+		debounced();
 	}
 });
 
-const trottled = throttle(sendMask, 1000);
+const debounced = debounce(sendMask, 1000);
 
 function repaint () {
 	ctx.clearRect(0, 0, mask.width, mask.height);
@@ -425,21 +400,34 @@ function repaint () {
 		ctx.strokeStyle = curve.color;
 		ctx.fillStyle = curve.color;
 
-		circle(curve[0]);
-		smoothCurve(curve);
+        ctx.beginPath();
+        ctx.arc(...curve[0], brush / 2, 0, 2 * Math.PI);
+        ctx.fill();
+        
+		smooth(curve);
 	});
 }
 
+function smooth(points) {
+	ctx.beginPath();
+	ctx.lineWidth = brush;
+	ctx.lineJoin = 'round';
+	ctx.lineCap = 'round';
 
+	ctx.moveTo(...points[0]);
 
+	for(let i = 1; i < points.length - 1; i++) {
+        const cp = points[i].map((coord, idx) => (coord + points[i + 1][idx]) / 2);
+	    ctx.quadraticCurveTo(...points[i], ...cp);       
+	}
 
+	ctx.stroke();
+}
 
 function tick() {
   if (needsRepaint) {
     repaint();
-    needsRepaint = false;
-    //sendMask();
-    //debounce(sendMask, 1000);
+    needsRepaint = false;    
   }
   window.requestAnimationFrame(tick);
 }
@@ -536,6 +524,7 @@ function setReview(id) {
    //var WebSocket = require('wss');
     currentImage.src = getData.url;
     currentImage.classList.remove('tool');
+    document.querySelector('.burger').style.display = '';
    //// console.log(currentImage, 'currentImage');
 
     console.log(getData, 'getData');
