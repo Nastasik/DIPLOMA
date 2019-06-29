@@ -14,27 +14,13 @@ const menu = document.querySelector('.menu'),
       marker = document.querySelector('.comments__marker'),
       menuUrl = menu.querySelector('.menu__url');
 
-let flag = '';
+let flag = '',
+    socket,
+    getData;
 
 marker.style.zIndex = 205;
 markerСheckbox.style.zIndex = 206;
 commentsForm.style.zIndex = 206;
-
-menu.dataset.state = 'initial';
-commentsForm.classList.add('tool');
-currentImage.classList.add('tool');
-document.querySelector('.burger').style.display = 'none';
-
-//---------------  узел с  ошибкой  ---------------------
-document.querySelector('.error').style.zIndex = 300;
-const newError = document.querySelector('.error').cloneNode(true); 
-newError.querySelector('.error__message').innerText = 'Чтобы загрузить новое изображение, пожалуйста, воспользуйтесь пунктом «Загрузить новое» в меню.';
-wrap.appendChild(newError);
-//----------------------------  скрытие исходной формы  -----------------------
-const cloakOfInvisibility = document.createElement('div'); 
-cloakOfInvisibility.classList.add('tool');  
-wrap.appendChild(cloakOfInvisibility);
-cloakOfInvisibility.appendChild(commentsForm);
 
 //--------------=========== МАСКА CANVAS =============---------------
 
@@ -69,13 +55,63 @@ maskComment.style.cssText = 'position: absolute; width: 100%; height: 100%; top:
 wrap.appendChild(maskCommentDiv);
 maskCommentDiv.appendChild(maskComment);
 
+
+//----------========== ОБНОВЛЕНИЕ СТРАНИЦЫ ===========----------------------
+//let getDataIDvalue = window.localStorage.getItem('getDataID');
+// console.log(getDataIDvalue, 'getDataID');
+
+// if (getData != undefined) {
+//  //  JSON.stringify(window.localStorage.setItem('adress', `https://neto-api.herokuapp.com/pic/${getDataIDvalue}`));    
+// }
+// //console.log(window.localStorage.setItem('adress', `https://neto-api.herokuapp.com/pic/${getDataIDvalue}`), '`httpsHHHHHHHHH`');
+
+//JSON.stringify(menuUrl.value));
+//window.localStorage.removeItem('getDataID');
+if (localStorage.getItem('getDataURL') == null) {
+    menu.dataset.state = 'initial';
+    commentsForm.classList.add('tool');
+    currentImage.classList.add('tool');
+    document.querySelector('.burger').style.display = 'none';
+} else {
+    //const getDataId = window.localStorage.getItem('getDataID');
+
+    window.localStorage.getItem('getDataURL');
+    menuUrl.value = window.location.protocol + '//' + window.location.host + window.location.pathname + '?id=' + window.localStorage.getItem('getDataID'); 
+    webSocket();
+   // updateCommentForm(getData.comments);
+    //console.log(localStorage.getItem('adress').url,'addresss');
+}
+
+//---------------  узел с  ошибкой  ---------------------
+document.querySelector('.error').style.zIndex = 300;
+const newError = document.querySelector('.error').cloneNode(true); 
+newError.querySelector('.error__message').innerText = 'Чтобы загрузить новое изображение, пожалуйста, воспользуйтесь пунктом «Загрузить новое» в меню.';
+wrap.appendChild(newError);
+//----------------------------  скрытие исходной формы  -----------------------
+const cloakOfInvisibility = document.createElement('div'); 
+cloakOfInvisibility.classList.add('tool');  
+wrap.appendChild(cloakOfInvisibility);
+cloakOfInvisibility.appendChild(commentsForm);
+
+
+
  //----------------------============== ВЕБСОКЕТ ===============---------------------
- let socket;
+ 
+ //let local;
+
 function webSocket() {
-     socket = new WebSocket('wss://neto-api.herokuapp.com/pic/' + getData.id);
+     socket = new WebSocket('wss://neto-api.herokuapp.com/pic/' + (window.localStorage.getItem('getDataID') || getData.id));
             socket.addEventListener('open', () => {
-                menuUrl.value = window.location.protocol + '//' + window.location.host + window.location.pathname + '?id=' + getData.id;             
+                menuUrl.value = window.location.protocol + '//' + window.location.host + window.location.pathname + '?id=' + (window.localStorage.getItem('getDataID') || getData.id); 
+                //localUrl = `${window.location.origin}${window.location.pathname}?id=${dataGetParse.id}`;          
+               // local = getData;
+               window.localStorage.setItem('getDataID', `${window.localStorage.getItem('getDataID') || getData.id}`);
+               window.localStorage.setItem('getDataURL', `${window.localStorage.getItem('getDataURL') || getData.url}`);
+              // window.localStorage.setItem('getDataComments', `${JSON.stringify(window.localStorage.getItem('getDataComments')) || getData.comments}`);
+///}
+//JSON.stringify(menuUrl.value));
                 console.log('Вебсокет-соединение открыто');
+                console.log(getData);
                             
             })
     socket.addEventListener('close', () => {
@@ -245,7 +281,7 @@ wrap.addEventListener('dragover', (event) => {
 
 //---------------========== ИЗОБРАЖЕНИЕ НА СЕРВЕР ============-----------------
 
-let getData;
+
 
 function imgOnServer(file) {
   
@@ -420,7 +456,6 @@ function smooth(points) {
         const cp = points[i].map((coord, idx) => (coord + points[i + 1][idx]) / 2);
 	    ctx.quadraticCurveTo(...points[i], ...cp);       
 	}
-
 	ctx.stroke();
 }
 
@@ -431,7 +466,6 @@ function tick() {
   }
   window.requestAnimationFrame(tick);
 }
-
 tick();
 
 function debounce(callback, delay) {
@@ -466,11 +500,6 @@ function sendMask() {
 	});
 }
 
-//----------========== ОБНОВЛЕНИЕ СТРАНИЦЫ ===========----------------------
-
-
-
-
 //------------------------============= ПОДЕЛИТЬСЯ ===============-------------------------------------
 
 document.querySelector('.menu_copy').addEventListener('click', function () {
@@ -478,9 +507,9 @@ document.querySelector('.menu_copy').addEventListener('click', function () {
     document.execCommand('copy');
 });
 
-
 let url = new URL(`${window.location.href}`);
 let newId = url.searchParams.get('id');
+console.log(newId, 'newId');
 urlId();
 
 function urlId() {
@@ -515,11 +544,11 @@ function setReview(id) {
 		`https://neto-api.herokuapp.com/pic/${id}`,
 		false
     );
-    
+    console.log(newId, 'newId');
 	xhrGetInfo.send();
 
    getData = JSON.parse(xhrGetInfo.responseText);
-   
+   //console.log(getData.id,'getData.id');
    webSocket();
    //var WebSocket = require('wss');
     currentImage.src = getData.url;
@@ -527,8 +556,10 @@ function setReview(id) {
     document.querySelector('.burger').style.display = '';
    //// console.log(currentImage, 'currentImage');
 
-    console.log(getData, 'getData');
+   // console.log(getData, 'getData');
+   // console.log(getData.comments);
 	updateCommentForm(getData.comments);
+        //JSON.parse(window.localStorage.getItem('getDataComments')) || getData.comments);
 }
 
 function updateCommentForm(newComment) {
@@ -536,21 +567,23 @@ function updateCommentForm(newComment) {
     let showComments = {};
     console.log(newComment, 'new')
 	Object.keys(newComment).forEach(id => {		
+        if (id in showComments) return;
 		console.log(newComment,'newComment');	
         showComments[id] = newComment[id];
         //console.log(showComments[id], 'showComments[id]');             
 
 		Array.from(document.querySelectorAll('.comments__form'), (form) => {
-			
-			if (+form.dataset.left === showComments[id].left && +form.dataset.top === showComments[id].top) {
+			console.log(form, 'fooooooooooooooorm');
+			if (+form.style.left === (newComment[id].left) && +form.style.top === (newComment[id].top)) {
                 form.querySelector('.loader').parentElement.style.display = 'none';
                 //console.log(form, 'form')
-				createComment(newComment[id], form);                 
-                return;
-            } 
+				                 
+                return createComment(newComment[id], form);;
+            } else {
            console.log(newComment[id], 'newComment[id]');
            createComment(newComment[id], createCommentForm(newComment[id].left + 20, newComment[id].top + 16));
-           flag = 'ok';			     
+           flag = 'ok';	
+        }		     
         });
     });   
 }
@@ -648,7 +681,7 @@ function createCommentForm(left, top) {
 
 function sendComment(commentData) {
         
-    fetch('https://neto-api.herokuapp.com/pic/' + getData.id + '/comments' , {
+    fetch('https://neto-api.herokuapp.com/pic/' + (window.localStorage.getItem('getDataID') || getData.id) + '/comments' , {
         method: 'POST',
         headers: {
         "Content-type": "application/x-www-form-urlencoded; charset=UTF-8"
