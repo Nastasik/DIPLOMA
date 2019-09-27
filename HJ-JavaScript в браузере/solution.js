@@ -26,7 +26,8 @@ let currentImage = document.querySelector('.current-image'),
     showComments = {};
    
 marker.style.zIndex = 205;
-markerСheckbox.style.zIndex = 206;
+commentsForm.style.position = 'absolute';
+markerСheckbox.style.zIndex = 209;
 commentsForm.style.zIndex = 206;
 currentImage.src = '';
 
@@ -36,12 +37,6 @@ console.log(window.location.host, 'window.location.host');
 console.log(window.location.host, 'window.location.host');
 console.log(currentImage, 'currentImage');
 
-//--------------=========== МАСКА CANVAS =============---------------
-
-const mask = document.createElement('canvas'),
-      ctx = mask.getContext('2d');
-wrap.appendChild(mask);
-
 //--------------=========== МАСКА CANVAS COMMENT =============---------------
 
 const maskCommentDiv = document.createElement('div'),
@@ -50,6 +45,12 @@ const maskCommentDiv = document.createElement('div'),
 
 wrap.appendChild(maskCommentDiv);
 maskCommentDiv.appendChild(maskComment);
+
+//--------------=========== МАСКА CANVAS =============---------------
+
+const mask = document.createElement('canvas'),
+      ctx = mask.getContext('2d');
+      maskCommentDiv.appendChild(mask);
 
 //----------------------------  скрытие исходной формы  -----------------------
 const invisibility = document.createElement('div'); 
@@ -61,19 +62,13 @@ invisibility.appendChild(commentsForm);
 for (let i = 0; i < 3; i++) {            
     commentsForm.children[2].removeChild(commentsForm.children[2].querySelectorAll('.comment')[0]);        
 }
+
 //----------========== ОБНОВЛЕНИЕ СТРАНИЦЫ ===========---------------------------
 
 let oldDataID;
 let oldDataURL;
-if (window.location.hash != '#open') {
-    menu.dataset.state = 'initial';
-    commentsForm.classList.add('tool');
-    currentImage.classList.add('tool');
-    burger.style.display = 'none';   
-    oldDataID = null;
-    oldDataURL = null;
-    
-} else {
+
+function reloadPage() {
     oldDataID = window.localStorage.getItem('getDataID');
     oldDataURL = window.localStorage.getItem('getDataURL');
     imgWidth = window.localStorage.getItem('imgWidth');
@@ -83,11 +78,29 @@ if (window.location.hash != '#open') {
     menuUrl.value = window.location.protocol + '//' + window.location.host + window.location.pathname + '?id=' + oldDataID; 
     webSocket(oldDataID, oldDataURL);
     setReview(oldDataID);   
-    isPic = 'yes';  
+    isPic = 'yes'; 
+}
+
+if (window.location.hash != '#open') {
+    menu.dataset.state = 'initial';
+    commentsForm.classList.add('tool');
+    currentImage.classList.add('tool');
+    burger.style.display = 'none';   
+    oldDataID = null;
+    oldDataURL = null;
+    
+} else {
+    reloadPage();
+  //  (maskCommentDiv.lastChild) ? formMarker.setAttribute('checked', '') : formMarker.checked = false;
+    // for(let form of maskCommentDiv.querySelectorAll('.comments__form')) {
+    //     console.log(form, 'formFFFF')
+    //     let formMarker = form.querySelector('.comments__marker-checkbox');
+    //     (form === maskCommentDiv.lastChild) ? formMarker.setAttribute('checked', '') : formMarker.checked = false;
+    // }
 }
 //--------------- размер масок при загрузке новых изображений -------------------
 function reloadCanvasSize(imgWidth, imgHeight) {     
-    mask.style.cssText = `position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 200;`    
+    mask.style.cssText = `position: absolute; width: ${imgWidth*3}px; height: ${imgHeight*3}px; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 200;`    
     mask.width =  imgWidth * 3;
     mask.height =  imgHeight * 3;
     maskCommentDiv.width = imgWidth;
@@ -113,10 +126,10 @@ const newError = document.querySelector('.error').cloneNode(true);
 newError.querySelector('.error__message').innerText = 'Чтобы загрузить новое изображение, пожалуйста, воспользуйтесь пунктом «Загрузить новое» в меню.';
 wrap.appendChild(newError);
 
- //----------------------============== ВЕБСОКЕТ ===============---------------------
+//----------------------============== ВЕБСОКЕТ ===============---------------------
 
 function webSocket(id, url) {
-     socket = new WebSocket('wss://neto-api.herokuapp.com/pic/' + id);
+    socket = new WebSocket('wss://neto-api.herokuapp.com/pic/' + id);
             socket.addEventListener('open', () => {
                 console.log(id, 'id');
                 console.log(url, 'url');
@@ -132,8 +145,7 @@ function webSocket(id, url) {
             })
     socket.addEventListener('close', (e) => {
       alert('Соединение разорвано');
-      console.log('CLOSE: code: ' + e.code);
-      
+      console.log('CLOSE: code: ' + e.code);      
     });
 
     socket.addEventListener('message', event => {
@@ -213,7 +225,6 @@ function menuMove(event) {
     document.documentElement.style.setProperty('--menu-top', y + "px");
 }
 
-
 document.addEventListener('mousemove', (event) => {
     if (moved != null) {
         event.preventDefault();        
@@ -245,7 +256,6 @@ fileLoad.classList.add('fileInput');
 loadNew.insertBefore(fileLoad, document.querySelector('new-icon'));
 
 //---------------  отображение изображения, проверка формата  ---------------
-
 
 function updateFilesInfo(files) {
     const imageTypeRegExp =  /.(png|jpeg)+$/;
@@ -302,7 +312,7 @@ wrap.addEventListener('dragover', (event) => {
 function imgOnServer(file) {
     console.log(file, 'file');
     window.location.hash = 'open';
-  let formData = new FormData();
+    let formData = new FormData();
        formData.append('title', file.name);
        formData.append('image', file);
        imageLoader.style.display = "";
@@ -343,6 +353,8 @@ function dataStateClean() {
     loadNew.style.display = 'none';
 }
 
+draw.addEventListener('click', () => reloadPage())//????
+
 let lastItem;
 [draw, comments, share].forEach((item) => {    
     item.addEventListener('click', () => {
@@ -350,7 +362,8 @@ let lastItem;
         dataStateClean();
         item.dataset.state = 'selected';
         item.style.display = 'inline-block';  
-        (draw.dataset.state === 'selected') ?  mask.style.zIndex = 203 : mask.style.zIndex = 200;   
+        (draw.dataset.state === 'selected') ?  mask.style.zIndex = 203 : mask.style.zIndex = 200;         
+        commentsForm.style.zIndex = 206;
     });   
 });
 
@@ -374,9 +387,9 @@ function delChecked(arr) {
 
 //---------------------------------  выбор кисти  -----------------------------------------------------
 Array.from(document.querySelector('.draw-tools').children, (item) => {
-    if (item.hasAttribute('checked')) {              
-        ctx.strokeStyle = getComputedStyle(document.querySelector(`.menu__color.green + span`)).backgroundColor;
-    }
+    // if (item.hasAttribute('checked')) {              
+    //     ctx.strokeStyle = getComputedStyle(document.querySelector(`.menu__color.green + span`)).backgroundColor;
+    // }
     item.addEventListener('click', (event) => {
         delChecked(Array.from(document.querySelector('.draw-tools').children));
         event.target.setAttribute('checked', '');        
@@ -410,7 +423,7 @@ let curves = [],
     needsRepaint = false;
 
 const brush = 4;
-
+const debounced = debounce(sendMask, 1000);
 function makePoint(x, y) {
 	return [x, y];
 };
@@ -437,17 +450,16 @@ mask.addEventListener("mouseleave", () => {
 
 mask.addEventListener("mousemove", () => {
 	if (drawing) {
-		const point = makePoint(event.offsetX, event.offsetY)
+        const point = makePoint(event.offsetX, event.offsetY);
+        console.log(curves.length - 1, 'curves.length - 1');
 		curves[curves.length - 1].push(point);
 		needsRepaint = true;
 		debounced();
 	}
 });
 
-const debounced = debounce(sendMask, 1000);
-
 function repaint () {
-	ctx.clearRect(0, 0, mask.width, mask.height);
+	 ctx.clearRect(0, 0, mask.width, mask.height);
 
 	curves.forEach((curve) => {
 		ctx.strokeStyle = curve.color;
@@ -587,7 +599,15 @@ function updateCommentForm(newComment) {
 				needForm = form;
             } 
          });
-         (needForm != undefined) ? createComment(newComment[id],  needForm) : createComment(newComment[id], createCommentForm(newComment[id].left + 20, newComment[id].top + 16));        
+         if (needForm != undefined) { 
+            (needForm.checked) ? needForm.checked = '' : needForm.checked = false;             
+         } else {
+              needForm = createCommentForm(newComment[id].left + 20, newComment[id].top + 16);              
+              needForm.querySelector('.comments__marker-checkbox').checked = false;    
+            //   console.log()          
+        }  
+         createComment(newComment[id],  needForm);
+        //  (needForm.checked != false) ? needForm.checked = '' : needForm.checked = false;      
          return showComments[id] = newComment[id];
     });     
 }
@@ -599,7 +619,6 @@ maskComment.addEventListener('click', (event) => {
        createCommentForm(event.offsetX, event.offsetY);//event.clientX, event.clientY);    
     }
 }); 
-
 
 function removeForm() {
     let prevForm;    
@@ -621,18 +640,21 @@ function createCommentForm(left, top) {
           formLoader = newForm.querySelector('.comment .loader'),
           newMarker = newForm.querySelector('.comments__marker-checkbox');
     newForm.flag = '';
-    console.log(newForm.flag, 'newForm.flag')
+    console.log(newForm.flag, 'newForm.flag');
+    
     formLoader.style.display = 'none';
     newForm.classList.remove('tool');    
+    
     delChecked(Array.from(document.querySelectorAll('.comments__marker-checkbox')));       
     
-    maskCommentDiv.appendChild(newForm);
+   // removeForm();
    
     newForm.style.left = left - 20 + 'px';
     newForm.style.top = top - 16 + 'px';
     
     commentOnOff();
     (commentsOn.hasAttribute('checked')) ?  newForm.classList.remove('tool') : newForm.classList.add('tool');      
+    // newMarker.checked = '';
     newMarker.setAttribute('checked', '');
    
     newForm.querySelector('.comments__close').addEventListener('click', () => {
@@ -642,8 +664,13 @@ function createCommentForm(left, top) {
         }       
     });
     
-    newMarker.addEventListener('click', (event) => {         
-        (event.target.hasAttribute('checked')) ? event.target.removeAttribute('checked') : removeForm() && event.target.setAttribute('checked', '');
+    newMarker.addEventListener('click', (event) => {  
+        if (event.target.hasAttribute('checked')) {
+            event.target.checked = false;
+        } else { 
+           removeForm();
+           event.target.setAttribute('checked', '');
+        }
         maskCommentDiv.appendChild(newForm);    
     });
     
@@ -660,6 +687,14 @@ function createCommentForm(left, top) {
         newForm.querySelector('.comments__input').value = '';        
         commentOnOff();
     });
+
+//     newForm.addEventListener('load', () => {
+// (newForm === maskCommentDiv.lastChild) ? newMarker.setAttribute('checked', '') : newMarker.checked = false;
+//     });
+    
+    maskCommentDiv.appendChild(newForm);
+   // (newForm === maskCommentDiv.lastChild) ? newMarker.setAttribute('checked', '') : newMarker.checked = false;
+console.log(maskCommentDiv.lastChild, 'maskCommentDiv.lastChild')
     return newForm;
 }   
 
