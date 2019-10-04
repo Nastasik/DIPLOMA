@@ -621,18 +621,17 @@ function updateCommentForm(newComment) {
         let needForm;
         Array.from(document.querySelectorAll('.comments__form')).forEach((form) => {
 			if (form.style.left === (newComment[id].left + 'px') && form.style.top === (newComment[id].top + 'px')) {                
-				needForm = form;
+                needForm = form;
+                needForm.querySelector('.comments__marker-checkbox').checked = form.querySelector('.comments__marker-checkbox').checked;
             } 
         });
-        // if (needForm != undefined) { 
-        //     (needForm.querySelector('.comments__marker-checkbox').checked = '') ? needForm.querySelector('.comments__marker-checkbox').checked = '' : needForm.querySelector('.comments__marker-checkbox').checked = false;             
-        // } else {
+        
         if (needForm === undefined) {  
             needForm = createCommentForm(newComment[id].left + 20, newComment[id].top + 16);              
             needForm.querySelector('.comments__marker-checkbox').checked = false;  
         }  
         createComment(newComment[id],  needForm);
-        // (needForm.querySelector('.comments__marker-checkbox').checked != false) ? needForm.querySelector('.comments__marker-checkbox').checked = '' : needForm.querySelector('.comments__marker-checkbox').checked = false;      
+              
         return showComments[id] = newComment[id];
     });     
 }
